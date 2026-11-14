@@ -41,6 +41,7 @@ namespace ProgressDisplayer2
         {
             if (!Main.isEnabled) return;
             combo = 0;
+            score = 0;
             isLevelStart = true;
 
             if(isOfficial)
@@ -77,13 +78,13 @@ namespace ProgressDisplayer2
             Main.textUI.SetText(string.Join("\n", texts));
         }
 
-        [HarmonyPatch(typeof(CustomLevel), "Play")]
+        [HarmonyPatch(typeof(scnGame), "Play")]
         private static class Play
         {
-            private static void Postfix(CustomLevel __instance)
+            private static void Postfix()
             {
-                if (!__instance.controller.gameworld) return;
-                if (__instance.controller.customLevel == null) return;
+                if (!scrController.instance.gameworld) return;
+                if (scnGame.instance == null) return;
                 
                 LevelStart(false);
             }
@@ -92,19 +93,37 @@ namespace ProgressDisplayer2
         [HarmonyPatch(typeof(scrPressToStart), "ShowText")]
         private static class ShowText
         {
-            private static void Postfix(scrPressToStart __instance)
+            private static void Postfix()
             {
-                if (!__instance.controller.gameworld) return;
-                if (__instance.controller.customLevel != null) return;
+                if (!scrController.instance.gameworld) return;
+                if (scnGame.instance != null) return;
                 
                 LevelStart(true);
             }
         }
         
-        [HarmonyPatch(typeof(scrCalibrationPlanet),"Start")]
+        [HarmonyPatch(typeof(scnCalibration), "Start")]
         private static class Start
         {
             private static void Prefix()
+            {
+                Disable();
+            }
+        }
+
+        [HarmonyPatch(typeof(scnEditor), "ResetScene")]
+        private static class ResetScene
+        {
+            private static void Postfix()
+            {
+                Disable();
+            }
+        }
+
+        [HarmonyPatch(typeof(scrController), "StartLoadingScene")]
+        private static class StartLoadingScene
+        {
+            private static void Postfix()
             {
                 Disable();
             }
@@ -120,7 +139,21 @@ namespace ProgressDisplayer2
         }
 
 
-        [HarmonyPatch(typeof(scrMistakesManager), "AddHit")]
+        // AddHit runs before the planet moves, so the progress it shows is one tile behind.
+        // Refresh again once the controller's current tile has advanced.
+        [HarmonyPatch(typeof(scrPlanet), "MoveToNextFloor")]
+        private static class MoveToNextFloor
+        {
+            private static void Postfix()
+            {
+                if (!isLevelStart) return;
+                if (!Main.isEnabled) return;
+
+                TextUpdate();
+            }
+        }
+
+        [HarmonyPatch(typeof(scrMarginTracker), "AddHit")]
         private static class AddHit
         {
             private static void Postfix(HitMargin hit)
@@ -140,7 +173,10 @@ namespace ProgressDisplayer2
                         case HitMargin.LatePerfect:
                             score += 150;
                             break;
-                        case HitMargin.Perfect:
+                        case HitMargin.PerfectMinus:
+                        case HitMargin.XPerfect:
+                        case HitMargin.PerfectPlus:
+                        case HitMargin.Auto:
                             score += 300;
                             break;
                     }
@@ -148,7 +184,8 @@ namespace ProgressDisplayer2
 
                 if (Main.setting.useCombo)
                 {
-                    if (hit == HitMargin.Perfect)
+                    if (hit == HitMargin.PerfectMinus || hit == HitMargin.XPerfect ||
+                        hit == HitMargin.PerfectPlus || hit == HitMargin.Auto)
                         combo++;
                     else
                         combo = 0;

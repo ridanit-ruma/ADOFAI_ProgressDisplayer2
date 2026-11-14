@@ -67,11 +67,23 @@ namespace ProgressDisplayer2
             isEnabled = value;
             if (value)
             {
-                harmony = new Harmony(modEntry.Info.Id);
-                harmony.PatchAll(Assembly.GetExecutingAssembly());
                 textUI = new GameObject().AddComponent<TextUI>();
                 UnityEngine.Object.DontDestroyOnLoad(textUI);
                 textUI.TextObject.SetActive(false);
+                harmony = new Harmony(modEntry.Info.Id);
+                // Patch each class on its own: a target that a game update removed must
+                // only disable its own patch, not abort the whole mod.
+                foreach (var patchClass in typeof(Patch).GetNestedTypes(BindingFlags.NonPublic))
+                {
+                    try
+                    {
+                        harmony.CreateClassProcessor(patchClass).Patch();
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.Log("Skipped patch " + patchClass.Name + ": " + e.Message);
+                    }
+                }
             }
             else
             {

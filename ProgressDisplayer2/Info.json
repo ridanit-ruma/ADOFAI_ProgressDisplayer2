@@ -1,0 +1,8 @@
+{
+  "Id": "ProgressDisplayer",
+  "DisplayName": "ProgressDisplayer",
+  "Author": "Flower",
+  "Version": "2.0.9",
+  "AssemblyName": "ProgressDisplayer.dll",
+  "EntryMethod": "ProgressDisplayer2.Main.Setup"
+}
